@@ -9,6 +9,9 @@ import ModalProducto from './components/ModalProducto';
 const CLOUDINARY_CLOUD_NAME = "okej62yk"; 
 const CLOUDINARY_UPLOAD_PRESET = "preset_elasombro";
 
+// EMAIL AUTORIZADO PARA ESTA TIENDA
+const EMAIL_AUTORIZADO = "tiendaelasombro@guiaclic.com.ar";
+
 export default function App() {
   const [productos, setProductos] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -60,8 +63,13 @@ export default function App() {
     fetchConfigNegocio();
     verificarSesion();
 
-    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setEsAdmin(!!session);
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (session?.user?.email === EMAIL_AUTORIZADO) {
+        setEsAdmin(true);
+      } else {
+        if (session) await supabase.auth.signOut();
+        setEsAdmin(false);
+      }
     });
 
     return () => {
@@ -71,7 +79,12 @@ export default function App() {
 
   async function verificarSesion() {
     const { data: { session } } = await supabase.auth.getSession();
-    setEsAdmin(!!session);
+    if (session?.user?.email === EMAIL_AUTORIZADO) {
+      setEsAdmin(true);
+    } else {
+      if (session) await supabase.auth.signOut();
+      setEsAdmin(false);
+    }
   }
 
   async function fetchProductos() {
@@ -193,6 +206,13 @@ export default function App() {
 
       if (error) throw error;
 
+      // VALIDACIÓN DE SEGURIDAD
+      if (data.user?.email !== EMAIL_AUTORIZADO) {
+        await supabase.auth.signOut();
+        setErrorPassword('Usuario incorrecto.');
+        return;
+      }
+
       setEsAdmin(true);
       setModalAdminAbierto(false);
       setEmailInput('');
@@ -295,6 +315,7 @@ export default function App() {
       setFormProd({ titulo: '', categoria: '', descripcion: '', precio: '', precio_oferta: '', imagen_url: '' });
       setProductoEditar(null);
       fetchProductos();
+      alert('¡Producto guardado correctamente!');
     } catch (err) {
       alert('Error al guardar el producto: ' + err.message);
     }
@@ -537,7 +558,7 @@ export default function App() {
                   <input
                     type="text"
                     required
-                    placeholder="BLANQUERÍA. NOVEDADES & BAZAR"
+                    placeholder="BLANQUERÍA, NOVEDADES & BAZAR"
                     value={configNegocio.subtitulo}
                     onChange={(e) => setConfigNegocio({ ...configNegocio, subtitulo: e.target.value })}
                     className="w-full p-2.5 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-white focus:ring-2 focus:ring-amber-400"
@@ -859,7 +880,7 @@ export default function App() {
                 <input
                   type="email"
                   required
-                  placeholder="admin@tiendaelasombro.com"
+                  placeholder="tiendaelasombro@guiaclic.com.ar"
                   value={emailInput}
                   onChange={(e) => setEmailInput(e.target.value)}
                   className="w-full p-3 border border-zinc-300 rounded-xl text-sm font-medium focus:ring-2 focus:ring-amber-500 focus:outline-none"
